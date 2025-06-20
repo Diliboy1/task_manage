@@ -1,1 +1,1 @@
-web: gunicorn task_manager.app:app
+web: gunicorn package.app:app
