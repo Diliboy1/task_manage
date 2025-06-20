@@ -100,8 +100,11 @@ def update_field():
     except Exception as e:
         return jsonify({'success': False, 'msg': str(e)})
 
+# 兼容本地开发和生产环境的数据库初始化
+if not os.path.exists('tasks.db'):
+    with app.app_context():
+        db.create_all()
+
 if __name__ == '__main__':
-    if not os.path.exists('tasks.db'):
-        with app.app_context():
-            db.create_all()
-    app.run(debug=True,port=5002) 
+    port = int(os.environ.get('PORT', 5002))
+    app.run(debug=True, port=port) 
