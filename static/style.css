@@ -1,0 +1,4 @@
+body { background: #f8f9fa; }
+h2 { font-weight: bold; }
+.table td, .table th { vertical-align: middle; }
+.badge { font-size: 1em; } 

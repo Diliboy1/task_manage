@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>任务管理器</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+<div class="container py-4">
+    <h2 class="mb-4">任务管理器</h2>
+    <div id="msgbox"></div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'success' if category == 'success' else 'warning' }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <form class="card p-3 mb-4" method="post">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">任务标题</label>
+                <input type="text" class="form-control" name="title" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">描述</label>
+                <input type="text" class="form-control" name="description">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">优先级(1-100)</label>
+                <input type="number" class="form-control" name="priority" min="1" max="100" value="50" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">截止日期</label>
+                <input type="date" class="form-control" name="due_date">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">添加任务</button>
+            </div>
+        </div>
+    </form>
+    <table class="table table-bordered align-middle" id="task-table">
+        <thead class="table-light">
+            <tr>
+                <th>完成</th>
+                <th>标题</th>
+                <th>描述</th>
+                <th>优先级</th>
+                <th>截止日期</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for task in tasks %}
+            <tr class="{% if task.completed %}table-success{% endif %}" data-task-id="{{ task.id }}">
+                <td style="text-align:center;">
+                    <a href="/complete/{{ task.id }}" class="btn btn-sm btn-outline-success">{% if task.completed %}✔{% else %}○{% endif %}</a>
+                </td>
+                <td class="editable" data-field="title">{{ task.title }}</td>
+                <td class="editable" data-field="description">{{ task.description }}</td>
+                <td class="editable" data-field="priority">
+                  <span class="badge bg-{% if task.priority <= 20 %}danger{% elif task.priority <= 50 %}warning{% else %}secondary{% endif %}">{{ task.priority }}</span>
+                </td>
+                <td class="editable" data-field="due_date">{{ task.due_date or '' }}</td>
+                <td>
+                    <a href="/edit/{{ task.id }}" class="btn btn-sm btn-info">编辑</a>
+                    <a href="/delete/{{ task.id }}" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除该任务吗？')">删除</a>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+$(function(){
+    function showMsg(msg, type) {
+        $('#msgbox').html('<div class="alert alert-' + (type||'success') + '" style="position:fixed;top:10px;right:10px;z-index:9999;min-width:200px;">'+msg+'</div>');
+        setTimeout(function(){ $('#msgbox').html(''); }, 2000);
+    }
+    $('#task-table').on('click', '.editable', function(){
+        if ($(this).find('input,select').length) return;
+        var td = $(this);
+        var tr = td.closest('tr');
+        var task_id = tr.data('task-id');
+        var field = td.data('field');
+        var oldVal = td.text().trim();
+        var input;
+        if (field === 'priority') {
+            input = $('<input type="number" min="1" max="100" class="form-control form-control-sm" style="width:70px;display:inline;" required>').val(oldVal);
+        } else if (field === 'due_date') {
+            input = $('<input type="date" class="form-control form-control-sm" style="width:140px;display:inline;">').val(oldVal);
+        } else {
+            input = $('<input type="text" class="form-control form-control-sm" style="width:140px;display:inline;">').val(oldVal);
+        }
+        td.html(input);
+        input.focus();
+        input.on('blur keydown', function(e){
+            if (e.type === 'blur' || (e.type === 'keydown' && e.key === 'Enter')) {
+                var newVal = input.val();
+                if (newVal === oldVal) { td.html(oldVal); return; }
+                $.ajax({
+                    url: '/update_field',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({task_id: task_id, field: field, value: newVal}),
+                    success: function(res){
+                        if (res.success) {
+                            if (field === 'priority' || field === 'due_date') {
+                                location.reload();
+                                return;
+                            }
+                            if (field === 'priority') {
+                                var badge = '<span class="badge bg-'+(newVal<=20?'danger':(newVal<=50?'warning':'secondary'))+'">'+newVal+'</span>';
+                                td.html(badge);
+                            } else {
+                                td.html(newVal);
+                            }
+                            showMsg('修改成功','success');
+                        } else {
+                            td.html(oldVal);
+                            showMsg(res.msg||'修改失败','warning');
+                        }
+                    },
+                    error: function(){
+                        td.html(oldVal);
+                        showMsg('网络错误','warning');
+                    }
+                });
+            }
+        });
+    });
+});
+</script>
+</body>
+</html> 
